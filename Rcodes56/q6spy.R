@@ -1,30 +1,26 @@
----
-title: "Q6"
-output: html_document
-date: "`r Sys.Date()`"
----
-
-```{r setup, include=FALSE}
+## ----setup, include=FALSE-------------------------------
 knitr::opts_chunk$set(echo = TRUE)
-```
 
 
-```{r}
+## -------------------------------------------------------
 
 library(bizdays) 
 
-spotUndelrying=3265.35
-interestRate=0.01881165
-dividendYield=0.01832855 
+spotUndelrying=325.71
 
-spxOptionCross=read.csv("./sampleData/spxOptionData20200110.csv", header=T,as.is = T,check.names=FALSE, colClasses=c("numeric","character","character",rep("numeric",3)))
-spxOptionCross$TradeDate=as.Date(spxOptionCross$TradeDate, format = "%Y%m%d")
-spxOptionCross$expiryDate=as.Date(spxOptionCross$expiryDate, format = "%Y%m%d")
+interestRate=0.000378369
 
-sort(unique(spxOptionCross$expiryDate))
+dividendYield=-0.003014659
+ 
+
+spyOptionCross=read.csv("./sampleData/spyOptionData20200110.csv", header=T,as.is = T,check.names=FALSE, colClasses=c("numeric","character","character",rep("numeric",3)))
+spyOptionCross$TradeDate=as.Date(spyOptionCross$TradeDate, format = "%Y%m%d")
+spyOptionCross$expiryDate=as.Date(spyOptionCross$expiryDate, format = "%Y%m%d")
+
+sort(unique(spyOptionCross$expiryDate))
 
 selectedExpiry="2020-06-19"
-oneExpiryOptionData=spxOptionCross[spxOptionCross$expiryDate==selectedExpiry,]
+oneExpiryOptionData=spyOptionCross[spyOptionCross$expiryDate==selectedExpiry,]
 
 # calculate business days
 business_calendar <- create.calendar('my_calendar', weekdays = c('saturday','sunday'))
@@ -36,15 +32,14 @@ callOptionData=callOptionData[order(callOptionData$strike),]
 
 putOptionData=oneExpiryOptionData[oneExpiryOptionData$c_p==0,]
 putOptionData=putOptionData[order(putOptionData$strike),]
-```
 
 
 
-```{r}
-marketPrice=1825.65
+## -------------------------------------------------------
+marketPrice=82.245
 
 
-strike=1425
+strike=245
 
 
 objective_Call_IV <- 
@@ -61,9 +56,9 @@ objective_Call_IV <-
   }
 
 result <- optimize(objective_Call_IV, interval = c(0, 30), tol = 0.0000001)
-```
 
-```{r Call}
+
+## ----Call-----------------------------------------------
 callOptionData$IV=NA
 
 for (i in 1:length(callOptionData$IV)){
@@ -91,11 +86,11 @@ for (i in 1:length(callOptionData$IV)){
 
 plot(callOptionData$strike,callOptionData$IV)
 
-write.csv(x = callOptionData,file = "SPXcallIV.csv")
+write.csv(x = callOptionData,file = "SPYcallIV.csv")
 
-```
 
-```{r Put}
+
+## ----Put------------------------------------------------
 
 putOptionData$IV=NA
 
@@ -119,7 +114,6 @@ for (i in 1:length(putOptionData$IV)){
 plot(putOptionData$strike,putOptionData$IV,type="l",col="red")
 lines(callOptionData$strike,callOptionData$IV,col="green")
 
-write.csv(x = putOptionData,file = "SPXputIV.csv")
+write.csv(x = putOptionData,file = "SPYputIV.csv")
 
-```
 

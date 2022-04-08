@@ -1,0 +1,20 @@
+---
+title: "plot for q3"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+q3plot <- read.csv("SPXtreePut.csv", header=T,as.is = T)
+
+q3plot %>% 
+  mutate(diffSPXput=putPrice-Tree) %>% 
+  ggplot(aes(x=X,y=diffSPXput))+
+  geom_line()+
+  ggtitle("plot of SPXput difference of all Dates and Strikes")
+```
+

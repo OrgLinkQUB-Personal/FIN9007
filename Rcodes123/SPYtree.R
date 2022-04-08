@@ -1,16 +1,8 @@
----
-title: "The big loop"
-author: "lbian01"
-date: '2022-03-28'
-output: html_document
----
-
-```{r setup, include=FALSE}
+## ----setup, include=FALSE----------------------------------------------------
 knitr::opts_chunk$set(echo = TRUE)
-```
 
 
-```{r}
+## ----------------------------------------------------------------------------
 selectedTradeDate="2020-01-10"
 
 spotUnderlyingSPY <- 
@@ -27,9 +19,9 @@ volatilitySPY <-
 
 
 
-```
 
-```{r 3.1.1 state price at expiry}
+
+## ----3.1.1 state price at expiry---------------------------------------------
 nSteps=1000
 
 statesTempSPY=rep(NA,nSteps+1)
@@ -39,10 +31,9 @@ for (j in 1:(nSteps+1)){
 }
 
 
-```
 
-###### option price at expiry
-```{r 3.1.1 option price at expiry}
+
+## ----3.1.1 option price at expiry--------------------------------------------
 # note: nSetps=2
 optionTempSPY=rep(NA,nSteps+1)
 for (j in 1:(nSteps+1)){
@@ -54,11 +45,9 @@ for (j in 1:(nSteps+1)){
 #cat("state price at step ",nSteps+1," is: ",statesTemp,'\n') 
 #cat("Option price at step ",nSteps+1," is: ",optionTemp,'\n')
 
-```
 
-###### Trade Date 2020-01-20 SPY cross section
 
-```{r SPY loop for RandD}
+## ----SPY loop for RandD------------------------------------------------------
 ################
 timestart<-Sys.time()
 
@@ -190,10 +179,9 @@ runningtime<-timeend-timestart
 
 print(runningtime)
 
-```
 
 
-```{r plot the diff}
+## ----plot the diff-----------------------------------------------------------
 
 PdiffSPY <- 
   TESTResultSPY %>% 
@@ -220,16 +208,4 @@ print(plott)
 
 
 
-
-```
-
-```{r}
-q3plot <- read.csv("SPYtreePut.csv", header=T,as.is = T)
-
-q3plot %>% 
-  mutate(diffSPXput=putPrice-Tree) %>% 
-  ggplot(aes(x=X,y=diffSPXput))+
-  geom_line()+
-  ggtitle("plot of SPYput difference of all Dates and Strikes")
-```
 
