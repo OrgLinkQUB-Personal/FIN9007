@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 
-```{r SPX CALL}
+```{r 5 GBM SPX CALL}
 timestart<-Sys.time()
 
 spotUnderlying=spotUnderlyingSPX
@@ -169,8 +169,13 @@ runningtime<-timeend-timestart
 
 print(runningtime)
 
+
+
 ```
-```{r compare}
+
+
+
+```{r 5 GBM compare}
 GBMResult <- 
   GBMResult %>% 
   select(GBMcall,callPrice,strike) %>% 
@@ -181,5 +186,8 @@ GBMResult %>%
   geom_line()+
   ggtitle('the plot of call price difference via stochastic process GBM with expriy date',m)
   
+
+write.csv(x = GBMResult,file = "GBMResult.csv")
+
 ```
 

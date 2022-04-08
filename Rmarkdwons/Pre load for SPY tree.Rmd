@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-```{r 2.1 SPYTTM}
+```{r 3.2 SPYTTM}
 spyOptionCross <- 
   spyOptionCross %>% 
   mutate(diffDate=expiryDate-TradeDate,
@@ -18,7 +18,7 @@ spyOptionCross <-
 ```
 
 
-```{r PUT-CALL}
+```{r 3.2 PUT-CALL}
 
 #Call Option
 
@@ -40,7 +40,7 @@ TESTputSPY <- spyOptionCross %>%
 
 ```
 
-```{r}
+```{r 3.2 check match}
 callSD <- 
   TESTcallSPY %>% 
   select(expiryDate,strike)
@@ -70,7 +70,7 @@ TESTcallSPY <-
 ```
 
 
-```{r}
+```{r 3.2 pair}
 
 TESTpairedSPY <- 
   TESTcallSPY %>% 
@@ -85,7 +85,7 @@ TESTpairedSPY <-
 
 
 
-```{r}
+```{r 3.2 implied}
 
 TESTsampleImpliedRSPY <- 
   TESTpairedSPY %>% 

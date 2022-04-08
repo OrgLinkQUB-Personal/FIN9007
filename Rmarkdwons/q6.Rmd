@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-```{r}
+```{r 6.1 spx load data}
 
 library(bizdays) 
 
@@ -40,7 +40,7 @@ putOptionData=putOptionData[order(putOptionData$strike),]
 
 
 
-```{r}
+```{r 6.1 spx run }
 marketPrice=1825.65
 
 
@@ -63,7 +63,7 @@ objective_Call_IV <-
 result <- optimize(objective_Call_IV, interval = c(0, 30), tol = 0.0000001)
 ```
 
-```{r Call}
+```{r 6.1 Call}
 callOptionData$IV=NA
 
 for (i in 1:length(callOptionData$IV)){
@@ -95,7 +95,7 @@ write.csv(x = callOptionData,file = "SPXcallIV.csv")
 
 ```
 
-```{r Put}
+```{r 6.1 Put}
 
 putOptionData$IV=NA
 

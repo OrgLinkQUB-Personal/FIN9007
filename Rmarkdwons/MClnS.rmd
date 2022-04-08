@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # the same example as the binomial tree
 
-```{r SPX Call}
+```{r 5 lnS SPX Call}
 
 timestart<-Sys.time()
 
@@ -89,14 +89,16 @@ MClnScall=rep(NA,length(strike))
 ###############
 
 ####
-  for (n in strike){
+for (n in strike){
+  
     strike <- n
     
     
 simulatedEndSample=rep(NA,nTimes)
 
-for (i in 1:nTimes){
-  simulatedEndSample[i]=spotUndelrying*exp((muMClnS-volatility^2/2)*T+volatility*rnorm(1)*sqrt(T))
+    for (i in 1:nTimes){
+      
+  simulatedEndSample[i]=spotUnderlying*exp((muMClnS-volatility^2/2)*T+volatility*rnorm(1)*sqrt(T))
 }
 
 
@@ -104,9 +106,12 @@ optionSample=rep(NA,length(simulatedEndSample))
 
 #################################################################
 # based on the distribution of asset price at expiry, calculate option price at expiry
-for (i in 1:length(simulatedEndSample)){
+
+  for (i in 1:length(simulatedEndSample)){
   optionSample[i]=max((simulatedEndSample[i]-strike)*call_put,0)
-}
+  }
+
+
 #################################################################
 # discount option price by risk-free rate
 optionPrice=mean(optionSample)*exp(-interestRate*deltaT*nSteps)
@@ -128,6 +133,7 @@ if(call_put==1)
   
   }
 
+
 MClnS <- 
   MClnS %>% 
   mutate(MClnScall=MClnScall)
@@ -144,7 +150,8 @@ print(runningtime)
 ```
 
 
-```{r compare}
+```{r 5 lnS compare}
+
 MClnSResult <- 
   MClnSResult %>% 
   select(MClnScall,callPrice,strike) %>% 
@@ -154,5 +161,7 @@ MClnSResult %>%
   ggplot(aes(x=strike,y=difference))+
   geom_line()+
   ggtitle('call price difference via stochastic process lnS with expriy date ',m)
+
+write.csv(x = MClnSResult,file = "MClnSResult.csv")
   
 ```

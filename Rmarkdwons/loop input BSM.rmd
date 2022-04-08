@@ -8,7 +8,7 @@ date: '2022-04-07'
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r 5 BSM input}
 selectedTradeDate="2020-01-10"
 
 spotUnderlyingSPX <- 
@@ -24,7 +24,7 @@ volatilitySPX <-
   as.numeric()
 ```
 
-```{r BSM loop }
+```{r 5 BSM loop }
 ################
 timestart<-Sys.time()
 
@@ -142,21 +142,22 @@ runningtime<-timeend-timestart
 
 print(runningtime)
 
+write.csv(x = BSMResult,file = "BSMResult.csv")
 
 
 ```
 
-```{r}
+```{r 5 BSM compare}
 BSMCompare <- 
   BSMResult %>%
   select(callPrice,putPrice,BSMcall,BSMput,strike,expiryDate,X) %>% 
   mutate(callD=callPrice-BSMcall,
          putD=putPrice-BSMput)
 
-BSMCompare %>% 
-  filter(expiryDate==selectedExpiry) %>%
-  ggplot(aes(x=strike,y=callD))+
-  geom_line()
+# BSMCompare %>% 
+#   filter(expiryDate==selectedExpiry) %>%
+#   ggplot(aes(x=strike,y=callD))+
+#   geom_line()
 
 
 BSMCompare %>% 
@@ -167,37 +168,66 @@ BSMCompare %>%
 
 ```
 
-```{r}
-BSMCompare <- BSMCompare %>% 
+```{r 5 BSM parity plot}
+
+BSMCompare <- 
+  BSMCompare %>% 
 mutate(leftside=callPrice+strike*exp(-interestRate*ttm),
   rightside=spotUnderlying*exp(-dividendYield*ttm)+putPrice) %>% 
-mutate(parity=leftside-rightside)
+mutate(parity=leftside-rightside) %>% 
+  mutate(PdiffParity=parity/leftside)
 
 
 BSMCompare %>% 
-  filter(expiryDate==selectedExpiry) %>% 
+  # filter(expiryDate==selectedExpiry) %>% 
   ggplot(aes(x=strike,y=parity))+
   geom_line()
 
+mean(BSMCompare$parity)
+mean(BSMCompare$PdiffParity)
 
 
+BSMCompare %>% 
+  ggplot(aes(x=X,y=PdiffParity))+
+  geom_line()
+
+
+write.csv(x = BSMCompare,file = "BSMCompare.csv")
   
 ```
 
 
-```{r}
+```{r 5 BSM plot each}
+library(patchwork)
 
 for (m in Dates){
+  
 d <- as.Date.numeric(m,origin = "1970-01-01")
 plott <- BSMCompare %>% 
   filter(expiryDate==m) %>%
   ggplot(aes(x=strike,y=callD))+
   geom_line()+
-  ggtitle(paste('the plot of call price difference via BSM with expriy date',d))
+  geom_vline(xintercept = spotUnderlyingSPX,colour="red")+
+  ggtitle(paste(d))+
+  xlab(NULL)+
+  ylab(NULL)
 
-print(plott)
+# ggsave(paste("SPXput",d),device = "png")
+
+if(m==18278)
+  {plotAllbsm <-plott}
+  else{plotAllbsm <- plotAllbsm+plott}
 
 }
+
+BSMdiff <- plotAllbsm+plot_layout(ncol = 4)+
+  plot_annotation(title = 'Diff between SPX optiong market price and BSM price of all ExpiryDates',subtitle =paste("red line is the spotunderlying price=",spotUnderlyingSPX) )
+
+BSMdiff
+
+ggsave("BSMdiff.png",width = 2280, height = 1460, units = "px")
+
+
 
 ```
 

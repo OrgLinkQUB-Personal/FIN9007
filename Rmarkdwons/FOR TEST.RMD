@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r 2.1 SPXTTM}
+```{r 3.1 SPXTTM}
 spxOptionCross <- 
   spxOptionCross %>% 
   mutate(diffDate=expiryDate-TradeDate,
@@ -18,7 +18,7 @@ spxOptionCross <-
 ```
 
 
-```{r 2.1 SPYTTM}
+```{r 3.1 SPYTTM}
 spyOptionCross <- 
   spyOptionCross %>% 
   mutate(diffDate=expiryDate-TradeDate,
@@ -27,7 +27,7 @@ spyOptionCross <-
 ```
 
 
-```{r PUT-CALL}
+```{r 3.1 PUT-CALL}
 
 #Call Option
 
@@ -49,7 +49,7 @@ TESTput <- spxOptionCross %>%
 
 ```
 
-```{r}
+```{r 3.1 check match}
 callSD <- 
   TESTcall %>% 
   select(expiryDate,strike)
@@ -64,7 +64,7 @@ setdiff(callSD,putSD)
 
 
 
-```{r}
+```{r 3.1 rmUnmatch}
 removeCall <- TESTcall %>% 
   filter(expiryDate=='2021-12-17',strike<=200)
 
@@ -79,7 +79,7 @@ TESTcall <-
 ```
 
 
-```{r}
+```{r 3.1 pair}
 
 TESTpaired <- 
   TESTcall %>% 
@@ -94,7 +94,7 @@ TESTpaired <-
 
 
 
-```{r}
+```{r 3.1 implied}
 
 TESTsampleImpliedR <- 
   TESTpaired %>% 

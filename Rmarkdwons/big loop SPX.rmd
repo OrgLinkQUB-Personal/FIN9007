@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-```{r}
+```{r 3.1 pre inputs}
 selectedTradeDate="2020-01-10"
 
 spotUnderlyingSPX <- 
@@ -49,14 +49,14 @@ for (j in 1:(nSteps+1)){
 
 
 
-cat("state price at step ",nSteps+1," is: ",statesTemp,'\n') 
-cat("Option price at step ",nSteps+1," is: ",optionTemp,'\n')
+# cat("state price at step ",nSteps+1," is: ",statesTemp,'\n') 
+# cat("Option price at step ",nSteps+1," is: ",optionTemp,'\n')
 
 ```
 
 ###### Trade Date 2020-01-20 SPX cross section
 
-```{r SPX loop for RandD}
+```{r 3.1 SPX loop for RandD}
 ################
 timestart<-Sys.time()
 
@@ -189,45 +189,64 @@ if (m==18278)
 timeend<-Sys.time()
 
 runningtime<-timeend-timestart
-
 print(runningtime)
 
 write.csv(x = TESTResult,file = "SPXtreePut.csv")
 
 ```
+```{r 3.1 patch plot}
 
-
-```{r plotout the diff}
-#view(TESTResult)
-
+library(patchwork)
 
 PdiffSPX <- 
   TESTResult %>% 
-  select(Tree,putPrice,strike,expiryDate) %>% 
+  select(Tree,putPrice,strike,expiryDate,X) %>% 
   mutate(diffSPXput=putPrice-Tree)
 
 
+PlotSPXput <- 
+  PdiffSPX %>%
+  ggplot(aes(x=X,y=diffSPXput))+
+  geom_line()+
+  ggtitle("SPXput option price diff between market and Tree  all Dates&Strikes")
+
+
+PlotSPXput
+
+ggsave("PlotSPXput.png",width = 2280, height = 720, units = "px")
+```
+
+
+```{r 3.1 plotout the diff}
+#view(TESTResult)
 
 for (m in Dates){
   
 d <- as.Date.numeric(m,origin = "1970-01-01")
+
 plott <- PdiffSPX %>% 
   filter(expiryDate==m) %>%
   ggplot(aes(x=strike,y=diffSPXput))+
   geom_line()+
-  ggtitle(paste('plot of SPX put price difference via binomial tree method',d))
+  geom_vline(xintercept = spotUnderlyingSPX,colour="red")+
+  ggtitle(paste(d))+
+  xlab(NULL)+
+  ylab(NULL)
 
-ggsave(paste("SPXput",d),device = "png")
+# ggsave(paste("SPXput",d),device = "png")
 
-print(plott)
+if(m==18278)
+  {plotAllSPXput <-plott}
+  else{plotAllSPXput <- plotAllSPXput+plott}
 
 }
-  
+
+SPXdiff <- plotAllSPXput+plot_layout(ncol = 4)+
+  plot_annotation(title = 'Diff between SPX optiong market price and Tree price of all ExpiryDates',subtitle =paste("red line is the spotunderlying price=",spotUnderlyingSPX) )
+
+SPXdiff
+
+ggsave("SPXdiff.png",width = 2280, height = 1320, units = "px")
 ```
 
-```{r}
-library(Ipaper)
-
-write_fig(plott, "SPXput.png", show = FALSE)
-```
 
