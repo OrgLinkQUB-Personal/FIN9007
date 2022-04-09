@@ -1,0 +1,1533 @@
+## ----setup, include=FALSE------------------------------
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+library(tidyverse)
+library(tidyquant)
+library(moments)
+library(tseries)
+library(bizdays)
+library(magrittr)
+library(patchwork)
+
+
+## ----lib, eval=FALSE, include=FALSE--------------------
+## library(tidyverse)
+## library(tidyquant)
+## library(moments)
+## library(tseries)
+## library(bizdays)
+## library(magrittr)
+
+
+## ----creat new Modes function, include=FALSE-----------
+Modes <- function(x) {
+  ux <- unique(x)
+  tab <- tabulate(match(x, ux))
+  ux[tab == max(tab)]
+}
+
+
+## ----load all data, include=FALSE----------------------
+
+# read underlying SP500 and SPDR data
+underlying <- 
+  read.csv("./sampleData/underlyingSampleData.csv", header=T,as.is = T)
+
+# as date
+  underlying$TradeDate %<>%
+  as.Date("%Y-%m-%d")
+
+# read the SPX cross section data on 20200110 
+spxOptionCross <-
+  read.csv("./sampleData/spxOptionData20200110.csv", #check.names=FALSE,
+               colClasses=c("numeric","character","character",rep("numeric",3)))
+
+# as date SPX
+spxOptionCross$TradeDate %<>% 
+  as.Date("%Y%m%d")
+spxOptionCross$expiryDate %<>% 
+  as.Date("%Y%m%d")
+
+# read the SPX Panel data on 20200110 
+spxOptionPD <- 
+  read.csv("./sampleData/spxOptionDataEx20200619.csv", colClasses=c("numeric","character","character",rep("numeric",3)))
+
+# as date SPXEx
+spxOptionPD$TradeDate %<>%
+  as.Date("%Y%m%d")
+spxOptionPD$expiryDate %<>% 
+  as.Date("%Y%m%d")
+
+# read the SPY data 
+spyOptionCross <- 
+  read.csv("./sampleData/spyOptionData20200110.csv", colClasses=c("numeric","character","character",rep("numeric",3)))
+
+# as date SPY
+spyOptionCross$TradeDate %<>%
+  as.Date("%Y%m%d")
+spyOptionCross$expiryDate %<>% 
+  as.Date("%Y%m%d")
+
+# read the SPYEx data 
+spyOptionPD <- 
+  read.csv("./sampleData/spyOptionDataEx20200619.csv", colClasses=c("numeric","character","character",rep("numeric",3)))
+
+# as date SPYEx
+spyOptionPD$TradeDate %<>%
+  as.Date("%Y%m%d")
+spyOptionPD$expiryDate %<>% 
+  as.Date("%Y%m%d")
+
+# read spx EminiEx data
+spEminiTS <- 
+  read.csv("./sampleData/spxEminiEx20200619.csv", header=T,as.is = T,check.names=FALSE)
+
+# as date
+spEminiTS$TradeDate %<>% 
+  as.Date("%d/%m/%Y")
+
+
+
+## ----1.1.1 Read Underlying, eval=FALSE, include=FALSE----
+## 
+## underlying2 <- read.csv("./sampleData/underlyingSampleData.csv", header=T,as.is = T)
+## 
+## underlying2$TradeDate <-
+##   underlying2$TradeDate %>%
+##   as.Date("%Y-%m-%d")
+## 
+## 
+## 
+
+
+## ----1.1.1 Return Calcu--------------------------------
+
+Nspx <- length(underlying$SPX)
+
+underlying <- underlying %>% 
+  mutate(retSPX=c(NA,SPX[2:Nspx]/SPX[1:Nspx-1]-1),
+         retSPY=c(NA,SPY[2:Nspx]/SPY[1:Nspx-1]-1),
+         logRetSPX=c(NA,diff(log(SPX))),
+         logRetSPY=c(NA,diff(log(SPY))),
+         ) %>% 
+  na.omit()
+
+
+
+## ----1.1.1 set Dates-----------------------------------
+# Set the begin date and end date 
+# why select?
+
+B.dates <- "2010-01-01"
+E.dates <- "2020-12-31"
+
+
+
+## ----1.1.1 filter with set Dates-----------------------
+
+selectedUnderlying <- filter(underlying,TradeDate>=B.dates&TradeDate<=E.dates )
+  
+
+
+## ----1.1.1 plot SPX------------------------------------
+
+selectedUnderlying %>% 
+  ggplot(aes(x=TradeDate,y=SPX))+
+  geom_line(colour="red")
+
+
+
+## ----1.1.1 SPX summary---------------------------------
+mean(selectedUnderlying$logRetSPX)*252
+var(selectedUnderlying$logRetSPX)
+sqrt(var(selectedUnderlying$logRetSPX)*252)
+skewness(selectedUnderlying$logRetSPX)
+kurtosis(selectedUnderlying$logRetSPX)
+
+# normality test
+jarque.bera.test(selectedUnderlying$logRetSPX)
+
+
+## ----1..1.1 SPX hist plot------------------------------
+
+selectedUnderlying %>% 
+  ggplot(aes(x=logRetSPX))+
+  geom_histogram(bins = 100,fill="#69b3a2",color="#e9ecef")+
+  geom_density(color='red')
+  
+d <- density(selectedUnderlying$logRetSPX)
+d
+plot(d)
+
+
+## ----1.1.1 SPX density and N-Distribut-----------------
+# compare empirical density and a normal distribution with the same mean and variance
+
+xAxis=seq(-0.15,0.1,by=0.0001)
+plot(d,xlim = c(-0.05,0.05))
+lines(xAxis,dnorm(xAxis, mean(selectedUnderlying$logRetSPX), sqrt(var(selectedUnderlying$logRetSPX))),col="green")
+
+
+
+## ----1.1.2 plot SPY------------------------------------
+
+selectedUnderlying %>% 
+  ggplot(aes(x=TradeDate,y=SPY))+
+  geom_line(colour="red")
+
+
+
+## ----1.1.2 SPY summary---------------------------------
+
+mean(selectedUnderlying$logRetSPY)*252
+var(selectedUnderlying$logRetSPY)
+sqrt(var(selectedUnderlying$logRetSPY)*252)
+skewness(selectedUnderlying$logRetSPY)
+kurtosis(selectedUnderlying$logRetSPY)
+
+# normality test
+jarque.bera.test(selectedUnderlying$logRetSPY)
+
+
+
+## ----1.1.2 SPY density and N-Distribut-----------------
+# compare empirical density and a normal distribution with the same mean and variance
+
+xAxis=seq(-0.15,0.1,by=0.0001)
+plot(d,xlim = c(-0.05,0.05))
+lines(xAxis,dnorm(xAxis, mean(selectedUnderlying$logRetSPX), sqrt(var(selectedUnderlying$logRetSPX))),col="green")
+
+
+
+## ----1.1.3 SPXOpt hist---------------------------------
+Modes(spxOptionCross$expiryDate)
+
+Modes(spxOptionCross$strike)
+
+#hist
+spxOptionCross %>% 
+  ggplot(aes(x=strike))+
+  geom_histogram(binwidth=20,fill="#69b3a2",color="#e9ecef")#, alpha=0.9)
+
+#mutate frequency
+spxOptionCross <- 
+  spxOptionCross %>% 
+  mutate(FrequencyStrike=ave(seq(length(strike)),strike,FUN = length))
+
+  
+
+
+## ----1.1.3 Sum SPXOpt----------------------------------
+#call
+SPXCall <- 
+  spxOptionCross %>% 
+  filter(c_p==1) %>% 
+  select(-(X:TradeDate))
+
+summary(SPXCall)
+
+#Put
+SPXPut <- 
+  spxOptionCross %>% 
+  filter(c_p==0) %>% 
+  select(-(X:TradeDate))
+
+summary(SPXPut)
+
+
+
+## ----1.1.3 SPXOpt c-p plot-----------------------------
+
+ggplot()+
+  geom_line(data=SPXCall,aes(strike,price,colour="Call"))+
+  geom_line(data=SPXPut,aes(strike,price,colour="Put"))+
+  ggtitle('RedCall and GreenPut')
+
+
+
+## ----1.1.4 SPYOpt hist---------------------------------
+Modes(spyOptionCross$expiryDate)
+
+Modes(spyOptionCross$strike)
+
+#hist
+spyOptionCross %>% 
+  ggplot(aes(x=strike))+
+  geom_histogram(binwidth=5,fill="#69b3a2",color="#e9ecef")#, alpha=0.9)
+
+#mutate frequency
+spyOptionCross <- 
+  spyOptionCross %>% 
+  mutate(FrequencyStrike=ave(seq(length(strike)),strike,FUN = length))
+
+  
+
+
+## ----1.1.4 Sum SPYOpt----------------------------------
+#call
+SPYCall <- 
+  spyOptionCross %>% 
+  filter(c_p==1) %>% 
+  select(-(X:TradeDate))
+
+summary(SPYCall)
+
+#Put
+SPYPut <- 
+  spyOptionCross %>% 
+  filter(c_p==0) %>% 
+  select(-(X:TradeDate))
+
+summary(SPYPut)
+
+
+
+## ----1.1.4 SPYOpt c-p plot-----------------------------
+
+ggplot()+
+  geom_line(data=SPYCall,aes(strike,price,colour="Call"))+
+  geom_line(data=SPYPut,aes(strike,price,colour="Put"))+
+  ggtitle('RedCall and GreenPut')
+
+
+
+## ----1.1.5 SPXOpt hist---------------------------------
+Modes(spxOptionPD$TradeDate)
+
+Modes(spxOptionPD$strike)
+
+
+#hist
+spxOptionPD %>% 
+  ggplot(aes(x=strike))+
+  geom_histogram(binwidth=25,fill="#69b3a2",color="#e9ecef")#, alpha=0.9)
+
+#mutate frequency
+spxOptionPD <- 
+  spxOptionPD %>% 
+  mutate(FrequencyStrike=ave(seq(length(strike)),strike,FUN = length))
+
+  
+
+
+## ----1.1.5 Sum SPXOpt----------------------------------
+#call
+SPXCallEx <- 
+  spxOptionPD %>% 
+  filter(c_p==1) %>% 
+  select(-(X:TradeDate))
+
+summary(SPXCallEx)
+
+#PutEx
+SPXPutEx <- 
+  spxOptionPD %>% 
+  filter(c_p==0) %>% 
+  select(-(X:TradeDate))
+
+summary(SPXPutEx)
+
+
+
+## ----1.1.5 SPXOpt c-p plot-----------------------------
+
+ggplot()+
+  geom_line(data=SPXCallEx,aes(strike,price,colour="Call"))+
+  geom_line(data=SPXPutEx,aes(strike,price,colour="Put"))+
+  ggtitle('RedCallEx and GreenPutEx')
+
+
+
+## ----1.1.6 SPYOpt hist---------------------------------
+Modes(spyOptionPD$TradeDate)
+
+Modes(spyOptionPD$strike)
+
+#hist
+spyOptionPD %>% 
+  ggplot(aes(x=strike))+
+  geom_histogram(binwidth = 5,fill="#69b3a2",color="#e9ecef")#, alpha=0.9)
+
+#mutate frequency
+spyOptionPD <- 
+  spyOptionPD %>% 
+  mutate(FrequencyStrike=ave(seq(length(strike)),strike,FUN = length))
+
+  
+
+
+## ----1.1.6 Sum SPYOpt----------------------------------
+#CallEx
+SPYCallEx <- 
+  spyOptionPD %>% 
+  filter(c_p==1) %>% 
+  select(-(X:TradeDate))
+
+summary(SPYCallEx)
+
+#PutEx
+SPYPutEx <- 
+  spyOptionPD %>% 
+  filter(c_p==0) %>% 
+  select(-(X:TradeDate))
+
+summary(SPYPutEx)
+
+
+
+## ----1.1.6 SPYOpt c-p plot-----------------------------
+
+ggplot()+
+  geom_line(data=SPYCallEx,aes(strike,price,colour="Call"))+
+  geom_line(data=SPYPutEx,aes(strike,price,colour="Put"))+
+  ggtitle('RedCallEx and GreenPutEx')
+
+
+
+## ----1.1.7---------------------------------------------
+
+summary(spEminiTS)
+
+spEminiTS %>%
+  ggplot(aes(x=TradeDate,y=`19/06/2020`)) +
+  geom_line(color='red')
+  
+
+
+## ----1.2 plot spx-spy----------------------------------
+
+selectedUnderlying %>% 
+  ggplot()+
+  geom_line(aes(x=TradeDate,y=SPX),colour="red")+
+  geom_line(aes(x=TradeDate,y=SPY*10),colour="green")
+
+
+
+## ----1.2 plot spx-spy10--------------------------------
+#according to above plot, spx is quiet close to spy*10.  try plot out the diff and %diff
+selectedUnderlying <- selectedUnderlying %>% 
+  mutate(diff=SPX-SPY*10) 
+
+selectedUnderlying %>%
+  ggplot(aes(x=TradeDate,y=diff))+
+  geom_line(colour="red")
+
+
+## ----1.2 plot diffP------------------------------------
+
+selectedUnderlying <-
+  selectedUnderlying %>% 
+  mutate(diffP=(SPX/SPY*10)-1) 
+
+selectedUnderlying %>%
+  ggplot(aes(x=TradeDate,y=diffP))+
+  geom_line(colour="red")
+
+
+
+## ----1.3 ReadData, eval=FALSE, include=FALSE-----------
+## spEminiTS=read.csv("./sampleData/spxEminiEx20200619.csv", header=T,as.is = T,check.names=FALSE)
+## 
+## spEminiTS$TradeDate %<>%
+##   as.Date("%d/%m/%Y")
+## 
+
+
+## ----1.3 Merge-----------------------------------------
+#merge SPX to TS by Date
+
+spEminiTS=merge(x=spEminiTS,y=underlying[c('TradeDate','SPX')],by="TradeDate",all.x=TRUE)
+
+
+
+## ----1.3 mutate new Basis cols-------------------------
+spEminiTS <- 
+  spEminiTS %>% 
+  mutate(Basis=`19/06/2020`-SPX,
+         BasisP=SPX/`19/06/2020`-1)
+
+
+
+## ----1.3 plot Basis and Basisp-------------------------
+spEminiTS %>% 
+  ggplot(aes(x=TradeDate,y=Basis))+
+  geom_line(colour="red")
+
+spEminiTS %>% 
+  ggplot(aes(x=TradeDate,y=BasisP))+
+  geom_line()
+
+
+
+
+## ----2.1 reload spxOption, eval=FALSE, include=FALSE----
+## 
+## spxOptionCross=read.csv("./sampleData/spxOptionData20200110.csv", #check.names=FALSE,
+##                colClasses=c("numeric","character","character",rep("numeric",3)))
+## 
+
+
+## ----2.1 TransDate, eval=FALSE, include=FALSE----------
+## 
+## spxOptionCross$TradeDate %<>%
+##   as.Date("%Y%m%d")
+## 
+## spxOptionCross$expiryDate %<>%
+##   as.Date("%Y%m%d")
+## 
+
+
+## ----2.1 sort&newData----------------------------------
+#spxOptionCross %<>%   arrange(expiryDate)
+
+sort(unique(spxOptionCross$expiryDate))
+
+selectedExpiry <- "2020-06-19"#select from sort?
+
+oneExpiryOptionData <- 
+  spxOptionCross %>% 
+  filter(expiryDate==selectedExpiry)
+
+
+
+## ----2.1 calBusiDays-----------------------------------
+
+business_calendar <- 
+  create.calendar('my_calendar', 
+                  weekdays = c('saturday','sunday'))
+
+ttm=bizdays(oneExpiryOptionData$TradeDate[1],
+            oneExpiryOptionData$expiryDate[1], 
+            cal = business_calendar)/252
+cat(ttm)
+
+
+## ----2.1 cal&Sort Data---------------------------------
+#Call Option
+callOptionData <- filter(oneExpiryOptionData,c_p==1)
+
+callOptionData <- callOptionData %>% 
+  arrange(strike)
+
+#Put Option
+putOptionData <- filter(oneExpiryOptionData,c_p==0)
+
+putOptionData <- putOptionData %>% 
+  arrange(strike)
+
+
+
+## ----2.1 group&Plot------------------------------------
+
+group <- ifelse(oneExpiryOptionData$c_p==1, "Call options", "Put options")
+
+oneExpiryOptionData %>% 
+  ggplot(aes(x=strike,y=price,color=group))+
+  geom_point()
+
+
+
+## ----2.1 pair------------------------------------------
+
+pairedOptions <- 
+  oneExpiryOptionData %>% 
+  distinct(strike) %>% 
+  arrange(strike) %>% 
+  data.frame() %>%
+  left_join(callOptionData[,c('strike','price')],by="strike")# merge by strike
+
+
+
+## ----2.1 rename&merge----------------------------------
+
+pairedOptions <-
+  pairedOptions %>% 
+  rename(callPrice=price) %>% 
+  left_join(putOptionData[,c('strike','price')],by="strike") %>% 
+  rename(putPrice=price)
+
+
+
+## ----2.1 implied&Plot----------------------------------
+
+pairedOptions %<>% 
+  mutate(impliedSPX_Pseudo=callPrice+strike-putPrice)
+#plot
+ggplot(pairedOptions,aes(x=strike,y=impliedSPX_Pseudo))+
+  geom_point(shape = 1)
+
+
+
+## ----2.1 sample & regress------------------------------
+
+sampleImpliedR <- 
+  pairedOptions %>% 
+  mutate(x=putPrice-callPrice) %>% 
+  select(strike,x) %>% 
+  data.frame()
+
+#linear regression
+resIR=lm(strike ~ x, data = sampleImpliedR)
+
+impliedSPXF=resIR$coefficients[1]
+
+impliedR=log(resIR$coefficients[2])/ttm
+
+
+
+## ----2.1 impliedSPXF&plot------------------------------
+
+pairedOptions <- pairedOptions %>% 
+  mutate(impliedSPXF=(callPrice-putPrice)*exp(impliedR*ttm)+strike)
+#
+ggplot(pairedOptions,aes(x=strike,y=impliedSPXF))+
+  geom_point()
+
+
+
+
+## ----2.1 spotUnderlying, eval=FALSE, include=FALSE-----
+## 
+## underlying3 <- read.csv("./sampleData/underlyingSampleData.csv", header=T,as.is = T)
+## 
+## underlying3$TradeDate %<>%
+##   as.Date("%Y-%m-%d")
+## 
+## spotUnderlying <- underlying3[underlying3$TradeDate=="2020-01-10",'SPX'] # why hard coding here?
+## 
+## 
+
+
+## ----2.1 load futures price----------------------------
+
+spotUnderlying <- 
+  underlying %>% 
+  filter(TradeDate=="2020-01-10") %>% 
+  select(SPX) %>% 
+  as.numeric()
+
+spEminiCross <- read.csv("./sampleData/spxEminiTrade20200110.csv", header=T,as.is = T,check.names=FALSE)
+
+spEminiCross$TradeDate %<>% as.Date("%d/%m/%Y")
+
+spotSPEmini <- spEminiCross[1,'19/06/2020']
+
+
+
+## ----2.1 dividend yield--------------------------------
+
+impliedDividend <- impliedR-log(impliedSPXF/spotUnderlying)/ttm
+
+
+## ----2.1 index level-----------------------------------
+
+pairedOptions <- 
+  pairedOptions %>% 
+  mutate(impliedSPX=
+           (callPrice-putPrice+strike*exp(-impliedR*ttm))
+         *exp(impliedDividend*ttm)
+         )
+#Plot
+ggplot(pairedOptions,aes(x=strike,y=impliedSPX))+
+  geom_point(shape=1)
+
+impliedSPX <- mean(pairedOptions$impliedSPX)
+
+
+
+## ----2.2 mutate Call Bounds----------------------------
+
+callOptionData <- 
+  callOptionData %>% 
+  mutate(upperBound=spotUnderlying,
+         lowerBound=impliedSPX*exp(-impliedDividend*ttm)-strike*exp(-impliedR*ttm))
+
+callOptionData$lowerBound[callOptionData$lowerBound<0]=0
+
+
+
+## ----2.2 Plot Call Bounds------------------------------
+callOptionData %>% 
+  ggplot(aes(x=strike))+
+  ylim(0,spotUnderlying*1.2)+
+  geom_point(aes(y=price),shape=1)+
+  geom_line(aes(y=upperBound,colour="upperBound"))+
+  geom_line(aes(y=lowerBound,colour="lowerBound"))
+
+
+## ----2.2 mutate put Bounds-----------------------------
+putOptionData <- 
+  putOptionData %>% 
+  mutate(upperBound=strike*exp(-impliedR*ttm),
+         lowerBound=strike*exp(-impliedR*ttm)-spotUnderlying*exp(-impliedDividend*ttm))
+
+putOptionData$lowerBound[putOptionData$lowerBound<0]=0
+
+
+## ----2.2 Plot Put Bounds-------------------------------
+putOptionData %>% 
+  ggplot(aes(x=strike))+
+  ylim(0,spotUnderlying*1.2)+
+  geom_point(aes(y=price),shape=1)+
+  geom_line(aes(y=upperBound,colour="upperBound"))+
+  geom_line(aes(y=lowerBound,colour="lowerBound"))
+
+
+
+## ----3.1.1 EUR-CALL load in parameter------------------
+
+nSteps=2
+interestRate=0.05
+dividendYield=0.02
+volatility=0.2
+ttm=6/12
+spotUnderlying=810
+strike=800
+call_put=1 #1 for call option, -1 for put option
+
+americanOption=FALSE
+displayBT=TRUE
+
+deltaT=ttm/nSteps
+
+uCRR=exp(volatility*sqrt(deltaT))
+
+dCRR=exp(-volatility*sqrt(deltaT))
+
+aCRR=exp((interestRate-dividendYield)*(deltaT))
+
+pCRR=(aCRR-dCRR)/(uCRR-dCRR)
+
+
+
+## ----3.1.1 state price at expiry-----------------------
+
+statesTemp=rep(NA,nSteps+1)
+
+for (j in 1:(nSteps+1)){
+  statesTemp[j]=spotUnderlying*uCRR^(j-1)*dCRR^(nSteps-(j-1))
+}
+print(statesTemp)
+
+
+
+## ----3.1.1 option price at expiry----------------------
+# note: nSetps=2
+optionTemp=rep(NA,nSteps+1)
+for (j in 1:(nSteps+1)){
+  optionTemp[j]=max((statesTemp[j]-strike)*call_put,0)
+}  
+cat("state price at step ",nSteps+1," is: ",statesTemp,'\n') 
+cat("Option price at step ",nSteps+1," is: ",optionTemp,'\n')
+
+
+
+## ----3.1.1 each node price-----------------------------
+
+for (i in nSteps:1){
+  optionTemp_1=rep(NA,i)
+  statesTemp=rep(NA,i)
+  for (j in 1:i){
+    statesTemp[j]=spotUnderlying*uCRR^(j-1)*dCRR^(i-1-(j-1))
+  }
+  
+  if (americanOption==TRUE){
+    for (j in 1:i){
+      optionTemp_1[j]=max(((1-pCRR)*optionTemp[j]+pCRR*optionTemp[j+1])*exp(-interestRate*deltaT),(statesTemp[j]-strike)*call_put)
+    }    
+  }  else{
+    for (j in 1:i){
+      optionTemp_1[j]=((1-pCRR)*optionTemp[j]+pCRR*optionTemp[j+1])*exp(-interestRate*deltaT)
+    }     
+  }
+  
+  optionTemp=optionTemp_1
+  if (displayBT==TRUE){
+    cat("state price at step ",i," is: ",statesTemp,'\n') 
+    cat("Option price at step ",i," is: ",optionTemp,'\n')
+  }
+}
+
+cat("Option price is: ",optionTemp)
+
+
+## ----3.1.2 EUR-CALL load parameters--------------------
+nSteps=1000
+interestRate=0.05
+dividendYield=0.02
+volatility=0.2 
+ttm=6/12
+spotUnderlying=810
+strike=800
+call_put=1 #1 for call option, -1 for put option
+
+americanOption=FALSE
+
+displayBT=FALSE
+
+deltaT=ttm/nSteps
+
+uCRR=exp(volatility*sqrt(deltaT))
+
+dCRR=exp(-volatility*sqrt(deltaT))
+
+aCRR=exp((interestRate-dividendYield)*(deltaT))
+
+pCRR=(aCRR-dCRR)/(uCRR-dCRR)
+
+
+## ----3.1.2 state price at expiry-----------------------
+
+statesTemp=rep(NA,nSteps+1)
+for (j in 1:(nSteps+1)){
+  statesTemp[j]=spotUnderlying*uCRR^(j-1)*dCRR^(nSteps-(j-1))
+}
+print(statesTemp)
+
+
+## ----3.1.2 option price at expiry----------------------
+
+optionTemp=rep(NA,nSteps+1)
+for (j in 1:(nSteps+1)){
+  optionTemp[j]=max((statesTemp[j]-strike)*call_put,0)
+}  
+cat("state price at step ",nSteps+1," is: ",statesTemp,'\n') 
+cat("Option price at step ",nSteps+1," is: ",optionTemp,'\n')
+
+
+
+## ----3.1.2 each node-----------------------------------
+
+for (i in nSteps:1){
+  optionTemp_1=rep(NA,i)
+  statesTemp=rep(NA,i)
+  for (j in 1:i){
+    statesTemp[j]=spotUnderlying*uCRR^(j-1)*dCRR^(i-1-(j-1))
+  }
+  
+  if (americanOption==TRUE){
+    for (j in 1:i){
+      optionTemp_1[j]=max(((1-pCRR)*optionTemp[j]+pCRR*optionTemp[j+1])*exp(-interestRate*deltaT),(statesTemp[j]-strike)*call_put)
+    }    
+  }  else{
+    for (j in 1:i){
+      optionTemp_1[j]=((1-pCRR)*optionTemp[j]+pCRR*optionTemp[j+1])*exp(-interestRate*deltaT)
+    }     
+  }
+  
+  optionTemp=optionTemp_1
+  if (displayBT==TRUE){
+    cat("state price at step ",i," is: ",statesTemp,'\n') 
+    cat("Option price at step ",i," is: ",optionTemp,'\n')
+  }
+
+}
+
+cat("Option price is: ",optionTemp)
+
+
+
+## ----3.1.3 AME-PUT load parameters---------------------
+
+nSteps=3
+interestRate=0.05
+dividendYield=0.05
+volatility=0.3
+ttm=9/12
+spotUnderlying=31
+strike=30
+call_put=-1 #1 for call option, -1 for put option
+
+americanOption=TRUE
+
+displayBT=TRUE
+
+deltaT=ttm/nSteps
+
+uCRR=exp(volatility*sqrt(deltaT))
+
+dCRR=exp(-volatility*sqrt(deltaT))
+
+aCRR=exp((interestRate-dividendYield)*(deltaT))
+
+pCRR=(aCRR-dCRR)/(uCRR-dCRR)
+
+
+## ----3.1.3 state price at expiry-----------------------
+
+statesTemp=rep(NA,nSteps+1)
+for (j in 1:(nSteps+1)){
+  statesTemp[j]=spotUnderlying*uCRR^(j-1)*dCRR^(nSteps-(j-1))
+}
+print(statesTemp)
+
+
+
+## ----3.1.3 option price at expiry----------------------
+
+optionTemp=rep(NA,nSteps+1)
+for (j in 1:(nSteps+1)){
+  optionTemp[j]=max((statesTemp[j]-strike)*call_put,0)
+}  
+cat("state price at step ",nSteps+1," is: ",statesTemp,'\n') 
+cat("Option price at step ",nSteps+1," is: ",optionTemp,'\n')
+
+
+
+## ----3.1.3 each node-----------------------------------
+
+for (i in nSteps:1){
+  optionTemp_1=rep(NA,i)
+  statesTemp=rep(NA,i)
+  for (j in 1:i){
+    statesTemp[j]=spotUnderlying*uCRR^(j-1)*dCRR^(i-1-(j-1))
+  }
+  
+  if (americanOption==TRUE){
+    for (j in 1:i){
+      optionTemp_1[j]=max(((1-pCRR)*optionTemp[j]+pCRR*optionTemp[j+1])*exp(-interestRate*deltaT),(statesTemp[j]-strike)*call_put)
+    }    
+  }  else{
+    for (j in 1:i){
+      optionTemp_1[j]=((1-pCRR)*optionTemp[j]+pCRR*optionTemp[j+1])*exp(-interestRate*deltaT)
+    }     
+  }
+  
+  optionTemp=optionTemp_1
+  if (displayBT==TRUE){
+    cat("state price at step ",i," is: ",statesTemp,'\n') 
+    cat("Option price at step ",i," is: ",optionTemp,'\n')
+  }
+}
+
+cat("Option price is: ",optionTemp)
+
+
+
+## ----3.1.4 Read Underlying, eval=FALSE, include=FALSE----
+## 
+## underlying4 <- read.csv("./sampleData/underlyingSampleData.csv", header=T,as.is = T)
+## 
+## underlying4$TradeDate <-
+##   underlying4$TradeDate %>%
+##   as.Date("%Y-%m-%d")
+## 
+## 
+## Nspx <- length(underlying4$SPX)
+## 
+## underlying4 <- underlying4 %>%
+##   mutate(retSPX=c(NA,SPX[2:Nspx]/SPX[1:Nspx-1]-1),
+##          retSPY=c(NA,SPY[2:Nspx]/SPY[1:Nspx-1]-1),
+##          logRetSPX=c(NA,diff(log(SPX))),
+##          logRetSPY=c(NA,diff(log(SPY))),
+##          ) %>%
+##   na.omit()
+## 
+
+
+## ----3.1.4 SPX set parameters--------------------------
+
+underlying$varspx=NA
+
+m_days=60
+
+# fill var 
+for (i in ((m_days+1):Nspx)){
+  underlying[i,'varspx']=1/(m_days-1)*sum((
+      underlying[(i-m_days-1):(i-1),'retSPX']-mean(underlying[(i-m_days-1):(i-1),'retSPX'])
+      )^2)
+  
+}
+
+
+#mutate std Annual
+underlying <- 
+  underlying %>% 
+  mutate(stdAnnualSPX=(varspx*252/m_days)^0.5)
+
+#plot
+underlying[seq(from = 1, to = Nspx, by = m_days),] %>% 
+  ggplot(aes(x=TradeDate,y=stdAnnualSPX))+
+  geom_line()
+
+
+
+## ----3.1.4 SPX vloatility binomial tree----------------
+
+selectedTradeDate="2020-01-10"
+
+#spotUnderlyingSPX=underlying[underlying$TradeDate==selectedTradeDate,'SPX']
+
+#volatilitySPX=underlying[underlying$TradeDate==selectedTradeDate,'stdAnnualSPX']
+
+spotUnderlyingSPX <- 
+  underlying %>% 
+  filter(TradeDate==selectedTradeDate) %>% 
+  select(SPX) %>% 
+  as.numeric()
+
+
+#volatilitySPY=underlying[underlying$TradeDate==selectedTradeDate,'stdAnnualSPY']
+
+volatilitySPX <- 
+  underlying %>% 
+  filter(TradeDate==selectedTradeDate) %>% 
+  select(stdAnnualSPX) %>% 
+  as.numeric()
+
+
+
+
+
+## ----3.1.4 SPY set parameters--------------------------
+
+underlying$varspy=NA
+
+m_days=60
+
+# fill var 
+for (i in ((m_days+1):Nspx)){
+  underlying[i,'varspy']=1/(m_days-1)*sum((
+      underlying[(i-m_days-1):(i-1),'retSPY']-mean(underlying[(i-m_days-1):(i-1),'retSPY'])
+      )^2)
+}
+
+#mutate std Annual
+underlying <- 
+  underlying %>% 
+  mutate(stdAnnualSPY=(varspy*252/m_days)^0.5)
+
+#plot
+underlying[seq(from = 1, to = Nspx, by = m_days),] %>% 
+  ggplot(aes(x=TradeDate,y=stdAnnualSPY))+
+  geom_line()
+
+
+
+## ----3.1.4 SPY vloatility binomial tree----------------
+
+cat(paste(selectedTradeDate))
+
+#spotUnderlyingSPY=underlying[underlying$TradeDate==selectedTradeDate,'SPY']
+
+spotUnderlyingSPY <- 
+  underlying %>% 
+  filter(TradeDate==selectedTradeDate) %>% 
+  select(SPY) %>% 
+  as.numeric()
+
+
+#volatilitySPY=underlying[underlying$TradeDate==selectedTradeDate,'stdAnnualSPY']
+
+volatilitySPY <- 
+  underlying %>% 
+  filter(TradeDate==selectedTradeDate) %>% 
+  select(stdAnnualSPY) %>% 
+  as.numeric()
+
+## ----setup, include=FALSE------------------------------
+knitr::opts_chunk$set(echo = TRUE)
+
+
+## ----3.1 SPXTTM----------------------------------------
+spxOptionCross <- 
+  spxOptionCross %>% 
+  mutate(diffDate=expiryDate-TradeDate,
+         ttm=bizdays(TradeDate,expiryDate,cal = business_calendar)/252) 
+  
+
+
+## ----3.1 SPYTTM----------------------------------------
+spyOptionCross <- 
+  spyOptionCross %>% 
+  mutate(diffDate=expiryDate-TradeDate,
+         ttm=bizdays(TradeDate,expiryDate,cal = business_calendar)/252) 
+  
+
+
+## ----3.1 PUT-CALL--------------------------------------
+
+#Call Option
+
+TESTcall <- spxOptionCross %>% 
+  filter(c_p==1) %>% 
+  rename(callPrice=price) %>% 
+  mutate(Kttm=(ttm/10)+strike) %>% 
+  arrange(Kttm) %>% 
+  data.frame()
+
+#Put Option
+
+TESTput <- spxOptionCross %>% 
+  filter(c_p==0) %>% 
+  rename(putPrice=price) %>% 
+  mutate(Kttm=(ttm/10)+strike) %>% 
+  arrange(Kttm) %>% 
+  data.frame()
+
+
+
+## ----3.1 check match-----------------------------------
+callSD <- 
+  TESTcall %>% 
+  select(expiryDate,strike)
+
+
+putSD <- 
+  TESTput %>% 
+  select(expiryDate,strike)
+
+setdiff(callSD,putSD)
+
+
+## ----3.1 rmUnmatch-------------------------------------
+removeCall <- TESTcall %>% 
+  filter(expiryDate=='2021-12-17',strike<=200)
+
+xrow=removeCall$X
+
+
+
+TESTcall <- 
+  TESTcall %>% 
+  filter(X!=xrow[1]&X!=xrow[2])
+
+
+
+## ----3.1 pair------------------------------------------
+
+TESTpaired <- 
+  TESTcall %>% 
+  left_join(TESTput[,c('Kttm','putPrice')],by='Kttm') %>% 
+  select(-c(c_p))
+
+#worning
+#underlying only has data till 2020-12-31
+
+
+
+## ----3.1 implied---------------------------------------
+
+TESTsampleImpliedR <- 
+  TESTpaired %>% 
+  mutate(putDcall=putPrice-callPrice) %>% 
+  select(Kttm,expiryDate,ttm,strike,putDcall,callPrice,putPrice,X) %>% 
+  arrange(expiryDate) %>% 
+  data.frame()
+
+Dates <- unique(TESTsampleImpliedR$expiryDate)
+
+
+## ----setup, include=FALSE------------------------------
+knitr::opts_chunk$set(echo = TRUE)
+
+
+## ----3.1 pre inputs------------------------------------
+selectedTradeDate="2020-01-10"
+
+spotUnderlyingSPX <- 
+  underlying %>% 
+  filter(TradeDate==selectedTradeDate) %>% 
+  select(SPX) %>% 
+  as.numeric()
+
+volatilitySPX <- 
+  underlying %>% 
+  filter(TradeDate==selectedTradeDate) %>% 
+  select(stdAnnualSPX) %>% 
+  as.numeric()
+
+
+
+## ----3.1.1 state price at expiry-----------------------
+nSteps=1000
+
+statesTemp=rep(NA,nSteps+1)
+
+for (j in 1:(nSteps+1)){
+  statesTemp[j]=spotUnderlying*uCRR^(j-1)*dCRR^(nSteps-(j-1))
+}
+
+
+
+
+## ----3.1.1 option price at expiry----------------------
+# note: nSetps=2
+optionTemp=rep(NA,nSteps+1)
+for (j in 1:(nSteps+1)){
+  optionTemp[j]=max((statesTemp[j]-strike)*call_put,0)
+}
+
+
+
+# cat("state price at step ",nSteps+1," is: ",statesTemp,'\n') 
+# cat("Option price at step ",nSteps+1," is: ",optionTemp,'\n')
+
+
+
+## ----3.1 SPX loop for RandD----------------------------
+################
+timestart<-Sys.time()
+
+
+
+#linear regression
+nSteps=1000
+call_put=-1#1 for call option, -1 for put option
+
+for (m in Dates){
+cnt <- 0
+
+# m=selectedExpiry
+
+
+lmsample <- 
+  TESTsampleImpliedR %>% 
+  filter(expiryDate==m)
+
+ttm=TTM <- unique(lmsample$ttm)
+
+resIR <- lm(strike ~ putDcall,data = lmsample)
+
+
+impliedSPXF <- resIR$coefficients[1]
+
+impliedR <- log(resIR$coefficients[2])/ttm
+
+impliedDividend <- impliedR-log(impliedSPXF/spotUnderlying)/ttm
+
+lmsample <- 
+  lmsample %>% 
+  mutate(impliedSPXF=resIR$coefficients[1],
+         impliedR=log(resIR$coefficients[2])/ttm) %>% 
+  mutate(impliedDividend=impliedR-log(impliedSPXF/spotUnderlying)/ttm) 
+
+
+d=as.Date.numeric(m)
+print(paste('for SPX expiry in',d,'we have R=',impliedR,'and Dividend=  ',impliedDividend))
+
+# print(paste('for SPX expiry in',m,'we have R=',impliedR,'and Dividend=  ',impliedDividend))
+
+##########
+
+interestRate=as.numeric(impliedR <- log(resIR$coefficients[2])/ttm) 
+
+dividendYield=as.numeric(impliedR-log(impliedSPXF/spotUnderlying)/ttm)
+
+volatility=volatilitySPX 
+
+spotUnderlying=spotUnderlyingSPX
+
+strike=Strikes <- unique(lmsample$strike)
+
+americanOption=FALSE
+
+deltaT=ttm/nSteps
+
+uCRR=exp(volatility*sqrt(deltaT))
+
+dCRR=exp(-volatility*sqrt(deltaT))
+
+aCRR=exp((interestRate-dividendYield)*(deltaT))
+
+pCRR=(aCRR-dCRR)/(uCRR-dCRR)
+
+####
+optionTemp=rep(NA,nSteps+1)
+statesTemp=rep(NA,nSteps+1)
+TreePrice=rep(NA,length(strike))
+
+####
+  for (n in strike){
+    TESTstrike <- n
+
+    for (j in 1:(nSteps+1)){
+      statesTemp[j]=spotUnderlying*uCRR^(j-1)*dCRR^(nSteps-(j-1))
+                            }
+####
+    for (o in 1:(nSteps+1)){
+        optionTemp[o]=max((statesTemp[o]-TESTstrike)*call_put,0)
+                            }  
+  
+####    
+    for (i in nSteps:1){optionTemp_1=rep(NA,i)
+                        statesTemp=rep(NA,i)
+                        s=(nSteps+1)
+    
+      for (s in 1:i){
+        statesTemp[s]=spotUnderlying*uCRR^(s-1)*dCRR^(i-1-(s-1))
+                    }
+    
+    if (americanOption==TRUE){
+      for (j in 1:i){
+        optionTemp_1[j]=max(((1-pCRR)*optionTemp[j]+pCRR*optionTemp[j+1])*exp(-interestRate*deltaT),(statesTemp[j]-TESTstrike)*call_put)
+                    }        }  
+    else{
+      for (j in 1:i){
+        optionTemp_1[j]=((1-pCRR)*optionTemp[j]+pCRR*optionTemp[j+1])*exp(-interestRate*deltaT)
+                    }     
+        }
+                    
+  optionTemp=optionTemp_1}
+  
+  cnt <- cnt+1
+  
+  #cat('Loop',paste(cnt),'is for option expiry at',paste(d),'when strike is',n,"Option price is: ",optionTemp,'\n')
+  
+  
+  
+  TreePrice[cnt] <- optionTemp
+  
+  }
+
+
+lmsample <- 
+  lmsample %>% 
+  mutate(Tree=TreePrice)
+
+# TESTResult <- lmsample
+
+if (m==18278)
+  {TESTResult <- lmsample}
+  else
+    {TESTResult <- bind_rows(TESTResult,lmsample)}
+}
+
+
+#output time usage
+timeend<-Sys.time()
+
+runningtime<-timeend-timestart
+print(runningtime)
+
+write.csv(x = TESTResult,file = "SPXtreePut.csv")
+
+
+## ----3.1 patch plot------------------------------------
+
+library(patchwork)
+
+PdiffSPX <- 
+  TESTResult %>% 
+  select(Tree,putPrice,strike,expiryDate,X) %>% 
+  mutate(diffSPXput=putPrice-Tree)
+
+
+PlotSPXput <- 
+  PdiffSPX %>%
+  ggplot(aes(x=X,y=diffSPXput))+
+  geom_line()+
+  ggtitle("SPXput option price diff between market and Tree  all Dates&Strikes")
+
+
+PlotSPXput
+
+ggsave("PlotSPXput.png",width = 2280, height = 720, units = "px")
+
+
+## ----3.1 plotout the diff------------------------------
+#view(TESTResult)
+
+for (m in Dates){
+  
+d <- as.Date.numeric(m,origin = "1970-01-01")
+
+plott <- PdiffSPX %>% 
+  filter(expiryDate==m) %>%
+  ggplot(aes(x=strike,y=diffSPXput))+
+  geom_line()+
+  geom_vline(xintercept = spotUnderlyingSPX,colour="red")+
+  ggtitle(paste(d))+
+  xlab(NULL)+
+  ylab(NULL)
+
+# ggsave(paste("SPXput",d),device = "png")
+
+if(m==18278)
+  {plotAllSPXput <-plott}
+  else{plotAllSPXput <- plotAllSPXput+plott}
+
+}
+
+SPXdiff <- plotAllSPXput+plot_layout(ncol = 4)+
+  plot_annotation(title = 'Diff between SPX optiong market price and Tree price of all ExpiryDates',subtitle =paste("red line is the spotunderlying price=",spotUnderlyingSPX) )
+
+SPXdiff
+
+ggsave("SPXdiff.png",width = 2280, height = 1320, units = "px")
+
+## ----setup, include=FALSE------------------------------
+knitr::opts_chunk$set(echo = TRUE)
+
+
+## ----3.2 SPYTTM----------------------------------------
+spyOptionCross <- 
+  spyOptionCross %>% 
+  mutate(diffDate=expiryDate-TradeDate,
+         ttm=bizdays(TradeDate,expiryDate,cal = business_calendar)/252) 
+  
+
+
+## ----3.2 PUT-CALL--------------------------------------
+
+#Call Option
+
+TESTcallSPY <- spyOptionCross %>% 
+  filter(c_p==1) %>% 
+  rename(callPrice=price) %>% 
+  mutate(Kttm=(ttm/10)+strike) %>% 
+  arrange(Kttm) %>% 
+  data.frame()
+
+#Put Option
+
+TESTputSPY <- spyOptionCross %>% 
+  filter(c_p==0) %>% 
+  rename(putPrice=price) %>% 
+  mutate(Kttm=(ttm/10)+strike) %>% 
+  arrange(Kttm) %>% 
+  data.frame()
+
+
+
+## ----3.2 check match-----------------------------------
+callSD <- 
+  TESTcallSPY %>% 
+  select(expiryDate,strike)
+
+
+putSD <- 
+  TESTputSPY %>% 
+  select(expiryDate,strike)
+
+setdiff(callSD,putSD)
+
+
+## ----eval=FALSE, include=FALSE-------------------------
+## removeCall <- TESTcallSPY %>%
+##   filter(expiryDate=='2021-12-17',strike<=200)
+## 
+## xrow=removeCall$X
+## 
+## 
+## 
+## TESTcallSPY <-
+##   TESTcallSPY %>%
+##   filter(X!=xrow[1]&X!=xrow[2])
+## 
+
+
+## ----3.2 pair------------------------------------------
+
+TESTpairedSPY <- 
+  TESTcallSPY %>% 
+  left_join(TESTputSPY[,c('Kttm','putPrice')],by='Kttm') %>% 
+  select(-c(c_p))
+
+#worning
+#underlying only has data till 2020-12-31
+
+
+
+## ----3.2 implied---------------------------------------
+
+TESTsampleImpliedRSPY <- 
+  TESTpairedSPY %>% 
+  mutate(putDcall=putPrice-callPrice) %>% 
+  select(Kttm,expiryDate,ttm,strike,putDcall,callPrice,putPrice,X) %>% 
+  arrange(expiryDate) %>% 
+  data.frame()
+
+DatesSPY <- unique(TESTsampleImpliedRSPY$expiryDate)
+
+DatesSPY <- DatesSPY[-1]
+
+
+## ----setup, include=FALSE------------------------------
+knitr::opts_chunk$set(echo = TRUE)
+
+
+## ----3.2 SPYTTM----------------------------------------
+spyOptionCross <- 
+  spyOptionCross %>% 
+  mutate(diffDate=expiryDate-TradeDate,
+         ttm=bizdays(TradeDate,expiryDate,cal = business_calendar)/252) 
+  
+
+
+## ----3.2 PUT-CALL--------------------------------------
+
+#Call Option
+
+TESTcallSPY <- spyOptionCross %>% 
+  filter(c_p==1) %>% 
+  rename(callPrice=price) %>% 
+  mutate(Kttm=(ttm/10)+strike) %>% 
+  arrange(Kttm) %>% 
+  data.frame()
+
+#Put Option
+
+TESTputSPY <- spyOptionCross %>% 
+  filter(c_p==0) %>% 
+  rename(putPrice=price) %>% 
+  mutate(Kttm=(ttm/10)+strike) %>% 
+  arrange(Kttm) %>% 
+  data.frame()
+
+
+
+## ----3.2 check match-----------------------------------
+callSD <- 
+  TESTcallSPY %>% 
+  select(expiryDate,strike)
+
+
+putSD <- 
+  TESTputSPY %>% 
+  select(expiryDate,strike)
+
+setdiff(callSD,putSD)
+
+
+## ----eval=FALSE, include=FALSE-------------------------
+## removeCall <- TESTcallSPY %>%
+##   filter(expiryDate=='2021-12-17',strike<=200)
+## 
+## xrow=removeCall$X
+## 
+## 
+## 
+## TESTcallSPY <-
+##   TESTcallSPY %>%
+##   filter(X!=xrow[1]&X!=xrow[2])
+## 
+
+
+## ----3.2 pair------------------------------------------
+
+TESTpairedSPY <- 
+  TESTcallSPY %>% 
+  left_join(TESTputSPY[,c('Kttm','putPrice')],by='Kttm') %>% 
+  select(-c(c_p))
+
+#worning
+#underlying only has data till 2020-12-31
+
+
+
+## ----3.2 implied---------------------------------------
+
+TESTsampleImpliedRSPY <- 
+  TESTpairedSPY %>% 
+  mutate(putDcall=putPrice-callPrice) %>% 
+  select(Kttm,expiryDate,ttm,strike,putDcall,callPrice,putPrice,X) %>% 
+  arrange(expiryDate) %>% 
+  data.frame()
+
+DatesSPY <- unique(TESTsampleImpliedRSPY$expiryDate)
+
+DatesSPY <- DatesSPY[-1]
+
+
+
+

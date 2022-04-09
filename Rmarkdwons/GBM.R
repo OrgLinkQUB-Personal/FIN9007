@@ -1,0 +1,181 @@
+## ----setup, include=FALSE------------------------------
+knitr::opts_chunk$set(echo = TRUE)
+
+
+## ----5 GBM SPX CALL------------------------------------
+timestart<-Sys.time()
+
+spotUnderlying=spotUnderlyingSPX
+
+call_put=1
+
+#for (m in Dates){
+
+m=selectedExpiry
+
+  cnt <- 0
+  
+#cal ttm and R and dividend
+GBM <- 
+  TESTsampleImpliedR %>% 
+  filter(expiryDate==m)
+
+ttm=TTM <- unique(GBM$ttm)
+
+deltaT=ttm/nSteps
+
+resIR <- lm(strike ~ putDcall,data = GBM)
+
+impliedSPXF <- resIR$coefficients[1]
+
+impliedR <- log(resIR$coefficients[2])/ttm
+
+impliedDividend <- impliedR-log(impliedSPXF/spotUnderlying)/ttm
+
+GBM <- 
+  GBM %>% 
+  mutate(impliedSPXF=resIR$coefficients[1],
+         impliedR=log(resIR$coefficients[2])/ttm) %>% 
+  mutate(impliedDividend=impliedR-log(impliedSPXF/spotUnderlying)/ttm) 
+
+
+#d <- as.Date.numeric(m,origin = "1970-01-01")
+
+print(paste('for SPX expiry in',m,'we have R=',impliedR,'and Dividend=  ',impliedDividend))
+
+interestRate=as.numeric(impliedR <- log(resIR$coefficients[2])/ttm) 
+
+dividendYield=as.numeric(impliedDividend <- (impliedR-log(impliedSPXF/spotUnderlying)/ttm))
+
+##########
+###load codes into para
+ttm=TTM <- unique(GBM$ttm)
+
+
+
+#### load as his format
+volatility=volatilitySPX 
+
+deltaT=ttm/nSteps
+
+spotUnderlying=spotUnderlyingSPX
+
+nSteps=1*252
+
+strike=Strikes <- unique(GBM$strike)
+
+interestRate=as.numeric(impliedR <- log(resIR$coefficients[2])/ttm) 
+
+dividendYield=as.numeric(impliedR-log(impliedSPXF/spotUnderlying)/ttm)
+
+muGBM=interestRate-dividendYield
+
+nTimes=100000
+
+GBMcall=rep(NA,length(strike))
+GBMput=rep(NA,length(strike))
+
+
+###############
+
+####
+  for (n in strike){
+    strike <- n
+
+spotUnderlying_t=rep(NA,nSteps)
+
+spotUnderlying_t[1]=spotUnderlying
+
+for (i in 2:nSteps){
+  
+  spotUnderlying_t[i]=spotUnderlying_t[i-1]+muGBM*spotUnderlying_t[i-1]*deltaT+volatility*spotUnderlying_t[i-1]*rnorm(1)*sqrt(deltaT)
+  
+}
+
+#plot(spotUnderlying_t, type="l")
+
+# simulate N times
+spotUnderlyingMatrix=matrix(NA, nrow = nSteps, ncol = nTimes)
+
+spotUnderlyingMatrix[1,]=spotUnderlying
+
+trials <- seq(1, nTimes)
+
+for (i in 1:nTimes){
+  for (j in 2:nSteps){
+    spotUnderlyingMatrix[j,i]=spotUnderlyingMatrix[j-1,i]+muGBM*spotUnderlyingMatrix[j-1,i]*deltaT+volatility*spotUnderlyingMatrix[j-1,i]*rnorm(1)*sqrt(deltaT)
+  }
+}
+
+
+simulatedEndSample=spotUnderlyingMatrix[nSteps,]
+
+optionSample=rep(NA,length(simulatedEndSample))
+
+#################################################################
+# based on the distribution of asset price at expiry, calculate option price at expiry
+for (i in 1:length(simulatedEndSample)){
+  optionSample[i]=max((simulatedEndSample[i]-strike)*call_put,0)
+}
+
+#################################################################
+# discount option price by risk-free rate
+optionPrice=mean(optionSample)*exp(-interestRate*deltaT*nSteps)
+
+cat(paste("this is the",cnt,"times, option Price based on S is:",optionPrice, "\n")) 
+
+  
+  cnt <- cnt+1
+  
+  #cat('Loop',paste(cnt),'is for option expiry at',paste(d),'when strike is',n,"Option price is: ",optionTemp,'\n')
+  
+  
+if(call_put==1)
+  {GBMcall[cnt] <- optionPrice}
+  else
+    {GBMput[cnt] <- optionPrice}
+  
+
+  
+  
+  }
+
+GBM <- 
+  GBM %>% 
+  mutate(GBMcall=GBMcall)
+
+
+GBMResult <- GBM
+#if (m==18278)
+  #{GBMResult <- GBM}
+  #else
+    #{GBMResult <- bind_rows(GBMResult,GBM)}
+#}
+
+
+#output time usage
+timeend<-Sys.time()
+
+runningtime<-timeend-timestart
+
+print(runningtime)
+
+
+
+
+
+## ----5 GBM compare-------------------------------------
+GBMResult <- 
+  GBMResult %>% 
+  select(GBMcall,callPrice,strike) %>% 
+  mutate(difference=callPrice-GBMcall)
+
+GBMResult %>% 
+  ggplot(aes(x=strike,y=difference))+
+  geom_line()+
+  ggtitle('the plot of call price difference via stochastic process GBM with expriy date',m)
+  
+
+write.csv(x = GBMResult,file = "GBMResult.csv")
+
+

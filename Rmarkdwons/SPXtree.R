@@ -1,0 +1,238 @@
+## ----setup, include=FALSE------------------------------
+knitr::opts_chunk$set(echo = TRUE)
+
+
+## ----3.1 pre inputs------------------------------------
+selectedTradeDate="2020-01-10"
+
+spotUnderlyingSPX <- 
+  underlying %>% 
+  filter(TradeDate==selectedTradeDate) %>% 
+  select(SPX) %>% 
+  as.numeric()
+
+volatilitySPX <- 
+  underlying %>% 
+  filter(TradeDate==selectedTradeDate) %>% 
+  select(stdAnnualSPX) %>% 
+  as.numeric()
+
+
+
+## ----3.1.1 state price at expiry-----------------------
+nSteps=1000
+
+statesTemp=rep(NA,nSteps+1)
+
+for (j in 1:(nSteps+1)){
+  statesTemp[j]=spotUnderlying*uCRR^(j-1)*dCRR^(nSteps-(j-1))
+}
+
+
+
+
+## ----3.1.1 option price at expiry----------------------
+# note: nSetps=2
+optionTemp=rep(NA,nSteps+1)
+for (j in 1:(nSteps+1)){
+  optionTemp[j]=max((statesTemp[j]-strike)*call_put,0)
+}
+
+
+
+# cat("state price at step ",nSteps+1," is: ",statesTemp,'\n') 
+# cat("Option price at step ",nSteps+1," is: ",optionTemp,'\n')
+
+
+
+## ----3.1 SPX loop for RandD----------------------------
+################
+timestart<-Sys.time()
+
+
+
+#linear regression
+nSteps=1000
+call_put=-1#1 for call option, -1 for put option
+
+for (m in Dates){
+cnt <- 0
+
+# m=selectedExpiry
+
+
+lmsample <- 
+  TESTsampleImpliedR %>% 
+  filter(expiryDate==m)
+
+ttm=TTM <- unique(lmsample$ttm)
+
+resIR <- lm(strike ~ putDcall,data = lmsample)
+
+
+impliedSPXF <- resIR$coefficients[1]
+
+impliedR <- log(resIR$coefficients[2])/ttm
+
+impliedDividend <- impliedR-log(impliedSPXF/spotUnderlying)/ttm
+
+lmsample <- 
+  lmsample %>% 
+  mutate(impliedSPXF=resIR$coefficients[1],
+         impliedR=log(resIR$coefficients[2])/ttm) %>% 
+  mutate(impliedDividend=impliedR-log(impliedSPXF/spotUnderlying)/ttm) 
+
+
+d=as.Date.numeric(m)
+print(paste('for SPX expiry in',d,'we have R=',impliedR,'and Dividend=  ',impliedDividend))
+
+# print(paste('for SPX expiry in',m,'we have R=',impliedR,'and Dividend=  ',impliedDividend))
+
+##########
+
+interestRate=as.numeric(impliedR <- log(resIR$coefficients[2])/ttm) 
+
+dividendYield=as.numeric(impliedR-log(impliedSPXF/spotUnderlying)/ttm)
+
+volatility=volatilitySPX 
+
+spotUnderlying=spotUnderlyingSPX
+
+strike=Strikes <- unique(lmsample$strike)
+
+americanOption=FALSE
+
+deltaT=ttm/nSteps
+
+uCRR=exp(volatility*sqrt(deltaT))
+
+dCRR=exp(-volatility*sqrt(deltaT))
+
+aCRR=exp((interestRate-dividendYield)*(deltaT))
+
+pCRR=(aCRR-dCRR)/(uCRR-dCRR)
+
+####
+optionTemp=rep(NA,nSteps+1)
+statesTemp=rep(NA,nSteps+1)
+TreePrice=rep(NA,length(strike))
+
+####
+  for (n in strike){
+    TESTstrike <- n
+
+    for (j in 1:(nSteps+1)){
+      statesTemp[j]=spotUnderlying*uCRR^(j-1)*dCRR^(nSteps-(j-1))
+                            }
+####
+    for (o in 1:(nSteps+1)){
+        optionTemp[o]=max((statesTemp[o]-TESTstrike)*call_put,0)
+                            }  
+  
+####    
+    for (i in nSteps:1){optionTemp_1=rep(NA,i)
+                        statesTemp=rep(NA,i)
+                        s=(nSteps+1)
+    
+      for (s in 1:i){
+        statesTemp[s]=spotUnderlying*uCRR^(s-1)*dCRR^(i-1-(s-1))
+                    }
+    
+    if (americanOption==TRUE){
+      for (j in 1:i){
+        optionTemp_1[j]=max(((1-pCRR)*optionTemp[j]+pCRR*optionTemp[j+1])*exp(-interestRate*deltaT),(statesTemp[j]-TESTstrike)*call_put)
+                    }        }  
+    else{
+      for (j in 1:i){
+        optionTemp_1[j]=((1-pCRR)*optionTemp[j]+pCRR*optionTemp[j+1])*exp(-interestRate*deltaT)
+                    }     
+        }
+                    
+  optionTemp=optionTemp_1}
+  
+  cnt <- cnt+1
+  
+  #cat('Loop',paste(cnt),'is for option expiry at',paste(d),'when strike is',n,"Option price is: ",optionTemp,'\n')
+  
+  
+  
+  TreePrice[cnt] <- optionTemp
+  
+  }
+
+
+lmsample <- 
+  lmsample %>% 
+  mutate(Tree=TreePrice)
+
+# TESTResult <- lmsample
+
+if (m==18278)
+  {TESTResult <- lmsample}
+  else
+    {TESTResult <- bind_rows(TESTResult,lmsample)}
+}
+
+
+#output time usage
+timeend<-Sys.time()
+
+runningtime<-timeend-timestart
+print(runningtime)
+
+write.csv(x = TESTResult,file = "SPXtreePut.csv")
+
+
+## ----3.1 patch plot------------------------------------
+
+library(patchwork)
+
+PdiffSPX <- 
+  TESTResult %>% 
+  select(Tree,putPrice,strike,expiryDate,X) %>% 
+  mutate(diffSPXput=putPrice-Tree)
+
+
+PlotSPXput <- 
+  PdiffSPX %>%
+  ggplot(aes(x=X,y=diffSPXput))+
+  geom_line()+
+  ggtitle("SPXput option price diff between market and Tree  all Dates&Strikes")
+
+
+PlotSPXput
+
+ggsave("PlotSPXput.png",width = 2280, height = 720, units = "px")
+
+
+## ----3.1 plotout the diff------------------------------
+#view(TESTResult)
+
+for (m in Dates){
+  
+d <- as.Date.numeric(m,origin = "1970-01-01")
+
+plott <- PdiffSPX %>% 
+  filter(expiryDate==m) %>%
+  ggplot(aes(x=strike,y=diffSPXput))+
+  geom_line()+
+  geom_vline(xintercept = spotUnderlyingSPX,colour="red")+
+  ggtitle(paste(d))+
+  xlab(NULL)+
+  ylab(NULL)
+
+# ggsave(paste("SPXput",d),device = "png")
+
+if(m==18278)
+  {plotAllSPXput <-plott}
+  else{plotAllSPXput <- plotAllSPXput+plott}
+
+}
+
+SPXdiff <- plotAllSPXput+plot_layout(ncol = 4)+
+  plot_annotation(title = 'Diff between SPX optiong market price and Tree price of all ExpiryDates',subtitle =paste("red line is the spotunderlying price=",spotUnderlyingSPX) )
+
+SPXdiff
+
+ggsave("SPXdiff.png",width = 2280, height = 1320, units = "px")
+
