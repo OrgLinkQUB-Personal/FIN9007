@@ -263,9 +263,9 @@ SPYdiff <- plotAllSPYput+plot_annotation(title = 'Diff between SPY optiong marke
 assign(paste("SPYdiff",i+1),SPYdiff)
   
 }
-ggsave("`SPYdiff 1`.png",width = 1920, height = 1080, units = "px")
-ggsave("`SPYdiff 2`.png",width = 1920, height = 1080, units = "px")
-ggsave("`SPYdiff 3`.png",width = 1920, height = 1080, units = "px")
+ggsave("`SPYdiff 1`.png",plot = `SPYdiff 1`,width = 1920, height = 1080, units = "px")
+ggsave("`SPYdiff 2`.png",plot = `SPYdiff 2`,width = 1920, height = 1080, units = "px")
+ggsave("`SPYdiff 3`.png",plot = `SPYdiff 3`,width = 1920, height = 1080, units = "px")
 
 
 `SPYdiff 1`
