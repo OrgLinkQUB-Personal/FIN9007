@@ -186,7 +186,7 @@ if (m==18274)
 
 
 
-# write.csv(x = TESTResultSPY,file = "SPYtreePut.csv")
+write.csv(x = TESTResultSPY,file = "SPYtreePut.csv")
 #output time usage
 timeend<-Sys.time()
 
@@ -195,6 +195,7 @@ runningtime<-timeend-timestart
 print(runningtime)
 
 ```
+
 
 ```{r 3.2 subset and plot}
 
