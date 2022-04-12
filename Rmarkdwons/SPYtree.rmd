@@ -215,8 +215,49 @@ PlotSPYput <-
 
 PlotSPYput
 
-ggsave("PlotSPYput.png",width = 2280, height = 720, units = "px")
+ggsave("PlotSPYput.png",width = 3840, height = 1080, units = "px")
 
+
+```
+```{r}
+for(i in c(0,1,2)){
+  
+  Plotdates <-na.omit(DatesSPY[(1+i*12):(12+i*12)]) 
+  
+  
+  for(m in Plotdates){
+    
+d <- as.Date.numeric(m,origin = "1970-01-01")
+
+print(d)
+
+plott <- PdiffSPY %>% 
+  filter(expiryDate==m) %>%
+  ggplot(aes(x=strike,y=putPrice))+
+  geom_line()+
+  geom_vline(xintercept = spotUnderlyingSPY,colour="red")+
+  ggtitle(paste(d))+
+  xlab(NULL)+
+  ylab(NULL)
+
+# ggsave(paste("SPYput",d),device = "png")
+
+
+if(m==Plotdates[1])
+  {plotAllSPYput <-plott}
+  else{plotAllSPYput <- plotAllSPYput+plott}
+
+  }
+  
+SPYdiff <- plotAllSPYput+plot_annotation(title = 'Diff between SPY optiong market price and Tree price of all ExpiryDates',subtitle =paste("red line is the spotunderlying price=",spotUnderlyingSPY))#+plot_layout(ncol = 4)  
+
+assign(paste("SPYdiff",i+1),SPYdiff)
+  
+}
+
+`SPYdiff 1`
+`SPYdiff 2`
+`SPYdiff 3`
 
 ```
 
@@ -283,6 +324,17 @@ ggsave("`SPYdiff 3`.png",plot = `SPYdiff 3`,width = 1920, height = 1080, units =
 ```
 
 
+```{r}
+
+SPYdiffStrike <- PdiffSPY %>% 
+  filter(strike==325) %>% 
+  ggplot(aes(x=expiryDate,y=diffSPYput))+
+  geom_line()+
+  ggtitle("Trend of SPYput price diff with increasing ttm when strike = 325")
+ggsave("`SPYdiffStrike`.png",plot = `SPYdiffStrike`,width = 1920, height = 1080, units = "px")
+
+SPYdiffStrike
+```
 
 
 

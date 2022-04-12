@@ -194,6 +194,8 @@ print(runningtime)
 write.csv(x = TESTResult,file = "SPXtreePut.csv")
 
 ```
+
+
 ```{r 3.1 patch plot}
 
 library(patchwork)
@@ -213,7 +215,7 @@ PlotSPXput <-
 
 PlotSPXput
 
-ggsave("PlotSPXput.png",width = 2280, height = 720, units = "px")
+ggsave("PlotSPXput.png",width = 3840, height = 1080, units = "px")
 ```
 
 
@@ -249,4 +251,24 @@ SPXdiff
 ggsave("SPXdiff.png",width = 2280, height = 1320, units = "px")
 ```
 
+```{r}
+
+SPXdiffStrike <- PdiffSPX %>% 
+  filter(strike==3250) %>% 
+  ggplot(aes(x=expiryDate,y=diffSPXput))+
+  geom_line()+
+  ggtitle("Trend of SPXput price diff with increasing ttm when strike = 3250")
+ggsave("`SPXdiffStrike`.png",plot = `SPXdiffStrike`,width = 1560, height = 1320, units = "px")
+
+SPXdiffStrike
+```
+
+```{r}
+PdiffSPX %>% 
+  mutate(diffp=100*diffSPXput/putPrice) %>% 
+  filter(expiryDate==selectedExpiry) %>% 
+  ggplot(aes(x=strike,y=diffp))+
+  geom_line()
+
+```
 
